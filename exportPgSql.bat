@@ -31,9 +31,9 @@ echo.
 echo [Step 1] Creating SQL query file...
 echo [%TIMESTAMP%] Creating SQL query file... >> %LOG_FILE%
 
-REM Create SQL file directly with SELECT query
+REM Create temporary table and then export
 (
-    echo \copy ^(
+    echo CREATE TEMPORARY TABLE temp_export AS
     echo SELECT edai.* ,
     echo     eda.article_id,
     echo     edt.name as templateName 
@@ -46,14 +46,14 @@ REM Create SQL file directly with SELECT query
     echo     ON edt.label_code = e.label_code
     echo GROUP BY edai.label_code, eda.article_id, edt.name
     echo ORDER BY edai.label_code
-    echo LIMIT 1
-    echo ^) TO STDOUT WITH CSV HEADER DELIMITER ',';
+    echo LIMIT 1;
+    echo.
+    echo \copy temp_export TO STDOUT WITH CSV HEADER DELIMITER ',';
 ) > %SQL_FILE%
 
 if exist %SQL_FILE% (
     echo ✓ SQL file created successfully
     echo [%TIMESTAMP%] SQL file created successfully >> %LOG_FILE%
-    type %SQL_FILE%
 ) else (
     echo.
     echo ✗ Failed to create SQL file!
@@ -95,6 +95,7 @@ if %errorlevel% equ 0 (
     echo 1. PostgreSQL server is running
     echo 2. Username and password are correct
     echo 3. Database connection is working
+    echo 4. Check log file for detailed error message
     echo.
     echo Log file: %LOG_FILE%
     echo Press any key to exit...
