@@ -14,7 +14,6 @@ set PGSQL_PASSWORD=Unitech
 
 set CSV_FILE=C:\temp\export_data.csv
 set LOG_FILE=C:\temp\migration_log.txt
-set SQL_FILE=C:\temp\export_query.sql
 set TIMESTAMP=%date:~10,4%-%date:~4,2%-%date:~7,2%_%time:~0,2%-%time:~3,2%-%time:~6,2%
 
 REM ========== Create Temp Folder ==========
@@ -26,42 +25,10 @@ echo PostgreSQL CSV Export Tool
 echo ========================================
 echo [%TIMESTAMP%] Start exporting... >> %LOG_FILE%
 
-REM ========== Step 1: Create SQL Query File ==========
+REM ========== Step 1: Prepare SQL Query ==========
 echo.
-echo [Step 1] Creating SQL query file...
-echo [%TIMESTAMP%] Creating SQL query file... >> %LOG_FILE%
-
-REM Create temporary table and then export
-(
-    echo CREATE TEMPORARY TABLE temp_export AS
-    echo SELECT edai.* ,
-    echo     eda.article_id,
-    echo     edt.name as templateName 
-    echo FROM end_device e 
-    echo JOIN end_device_add_info edai 
-    echo     ON edai.label_code = e.label_code
-    echo JOIN end_device_articles eda 
-    echo     ON eda.label_code = e.label_code
-    echo JOIN end_device_templates edt 
-    echo     ON edt.label_code = e.label_code
-    echo GROUP BY edai.label_code, eda.article_id, edt.name
-    echo ORDER BY edai.label_code
-    echo LIMIT 1;
-    echo.
-    echo \copy temp_export TO STDOUT WITH CSV HEADER DELIMITER ',';
-) > %SQL_FILE%
-
-if exist %SQL_FILE% (
-    echo ✓ SQL file created successfully
-    echo [%TIMESTAMP%] SQL file created successfully >> %LOG_FILE%
-) else (
-    echo.
-    echo ✗ Failed to create SQL file!
-    echo [%TIMESTAMP%] Failed to create SQL file! >> %LOG_FILE%
-    echo Press any key to exit...
-    pause >nul
-    exit /b 1
-)
+echo [Step 1] Preparing SQL query...
+echo [%TIMESTAMP%] Preparing SQL query... >> %LOG_FILE%
 
 REM ========== Step 2: Export CSV from PostgreSQL ==========
 echo.
@@ -70,9 +37,9 @@ echo [%TIMESTAMP%] Exporting CSV file from PostgreSQL... >> %LOG_FILE%
 
 set PGPASSWORD=%PGSQL_PASSWORD%
 
-REM Execute SQL file using -f parameter
+REM Execute SQL command directly using -c parameter (single session)
 echo Connecting to database...
-psql -h %PGSQL_HOST% -p %PGSQL_PORT% -U %PGSQL_USER% -d %PGSQL_DB% -f %SQL_FILE% > %CSV_FILE% 2>>%LOG_FILE%
+psql -h %PGSQL_HOST% -p %PGSQL_PORT% -U %PGSQL_USER% -d %PGSQL_DB% -c "CREATE TEMPORARY TABLE temp_export AS SELECT edai.* , eda.article_id, edt.name as templateName FROM end_device e JOIN end_device_add_info edai ON edai.label_code = e.label_code JOIN end_device_articles eda ON eda.label_code = e.label_code JOIN end_device_templates edt ON edt.label_code = e.label_code GROUP BY edai.label_code, eda.article_id, edt.name ORDER BY edai.label_code LIMIT 1; \copy temp_export TO STDOUT WITH CSV HEADER DELIMITER ',';" > %CSV_FILE% 2>>%LOG_FILE%
 
 if %errorlevel% equ 0 (
     echo.
@@ -101,14 +68,6 @@ if %errorlevel% equ 0 (
     echo Press any key to exit...
     pause >nul
     exit /b 1
-)
-
-REM ========== Step 3: Clean Up Temporary Files ==========
-echo.
-echo [Step 3] Cleaning up temporary files...
-if exist %SQL_FILE% (
-    del /f /q %SQL_FILE%
-    echo ✓ Temporary files deleted
 )
 
 echo.
