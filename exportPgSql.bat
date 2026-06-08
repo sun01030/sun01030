@@ -1,6 +1,6 @@
 @echo off
 REM ========================================
-REM PostgreSQL 到 MSSQL 資料遷移指令 (修正版)
+REM PostgreSQL SQL 查詢匯出 CSV 檔案
 REM ========================================
 
 setlocal enabledelayedexpansion
@@ -11,7 +11,6 @@ set PGSQL_PORT=9010
 set PGSQL_DB=AIMS_PORTAL_DB
 set PGSQL_USER=unitech
 set PGSQL_PASSWORD=Unitech
-set PGSQL_TABLE=end_device
 
 set CSV_FILE=C:\temp\export_data.csv
 set LOG_FILE=C:\temp\migration_log.txt
@@ -21,7 +20,7 @@ set TIMESTAMP=%date:~10,4%-%date:~4,2%-%date:~7,2%_%time:~0,2%-%time:~3,2%-%time
 REM ========== 建立臨時資料夾 ==========
 if not exist C:\temp mkdir C:\temp
 
-echo [%TIMESTAMP%] 開始資料遷移... >> %LOG_FILE%
+echo [%TIMESTAMP%] 開始匯出... >> %LOG_FILE%
 
 REM ========== 步驟 1：建立 SQL 查詢檔案 ==========
 echo.
@@ -29,7 +28,34 @@ echo [步驟 1] 建立 SQL 查詢檔案...
 echo [%TIMESTAMP%] 建立 SQL 查詢檔案... >> %LOG_FILE%
 
 (
-    echo \copy %PGSQL_TABLE% TO STDOUT WITH CSV HEADER DELIMITER ',';
+    echo SELECT edai.* ,
+    echo     eda.article_id,
+    echo     edt.name as templateName 
+    echo FROM end_device e 
+    echo JOIN end_device_add_info edai 
+    echo     ON edai.label_code = e.label_code
+    echo JOIN end_device_articles eda 
+    echo     ON eda.label_code = e.label_code
+    echo JOIN end_device_templates edt 
+    echo     ON edt.label_code = e.label_code
+    echo GROUP BY edai.label_code, eda.article_id, edt.name
+    echo ORDER BY edai.label_code
+    echo LIMIT 1;
+    echo \copy (^
+    echo SELECT edai.* ,
+    echo     eda.article_id,
+    echo     edt.name as templateName 
+    echo FROM end_device e 
+    echo JOIN end_device_add_info edai 
+    echo     ON edai.label_code = e.label_code
+    echo JOIN end_device_articles eda 
+    echo     ON eda.label_code = e.label_code
+    echo JOIN end_device_templates edt 
+    echo     ON edt.label_code = e.label_code
+    echo GROUP BY edai.label_code, eda.article_id, edt.name
+    echo ORDER BY edai.label_code
+    echo LIMIT 1^
+    echo ) TO STDOUT WITH CSV HEADER DELIMITER ',';
 ) > %SQL_FILE%
 
 if exist %SQL_FILE% (
@@ -72,9 +98,9 @@ if exist %SQL_FILE% del /f /q %SQL_FILE%
 
 echo.
 echo ========================================
-echo 資料遷移全部完成！
+echo CSV 匯出全部完成！
 echo 詳細日誌：%LOG_FILE%
 echo ========================================
-echo [%TIMESTAMP%] 資料遷移全部完成！ >> %LOG_FILE%
+echo [%TIMESTAMP%] CSV 匯出全部完成！ >> %LOG_FILE%
 
 pause
