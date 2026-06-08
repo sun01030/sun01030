@@ -1,11 +1,11 @@
 @echo off
 REM ========================================
-REM PostgreSQL SQL 查詢匯出 CSV 檔案 (簡化版)
+REM PostgreSQL SQL Query Export to CSV File
 REM ========================================
 
 setlocal enabledelayedexpansion
 
-REM ========== 設定變數 ==========
+REM ========== Set Variables ==========
 set PGSQL_HOST=pxmart.aims.solumesl.com
 set PGSQL_PORT=9010
 set PGSQL_DB=AIMS_PORTAL_DB
@@ -17,21 +17,21 @@ set LOG_FILE=C:\temp\migration_log.txt
 set SQL_FILE=C:\temp\export_query.sql
 set TIMESTAMP=%date:~10,4%-%date:~4,2%-%date:~7,2%_%time:~0,2%-%time:~3,2%-%time:~6,2%
 
-REM ========== 建立臨時資料夾 ==========
+REM ========== Create Temp Folder ==========
 if not exist C:\temp mkdir C:\temp
 
 echo.
 echo ========================================
-echo PostgreSQL CSV 匯出工具
+echo PostgreSQL CSV Export Tool
 echo ========================================
-echo [%TIMESTAMP%] 開始匯出... >> %LOG_FILE%
+echo [%TIMESTAMP%] Start exporting... >> %LOG_FILE%
 
-REM ========== 步驟 1：建立 SQL 查詢檔案 ==========
+REM ========== Step 1: Create SQL Query File ==========
 echo.
-echo [步驟 1] 建立 SQL 查詢檔案...
-echo [%TIMESTAMP%] 建立 SQL 查詢檔案... >> %LOG_FILE%
+echo [Step 1] Creating SQL query file...
+echo [%TIMESTAMP%] Creating SQL query file... >> %LOG_FILE%
 
-REM 直接建立 SQL 檔案，使用簡單的 SELECT 查詢
+REM Create SQL file directly with SELECT query
 (
     echo \copy ^(
     echo SELECT edai.* ,
@@ -51,72 +51,72 @@ REM 直接建立 SQL 檔案，使用簡單的 SELECT 查詢
 ) > %SQL_FILE%
 
 if exist %SQL_FILE% (
-    echo ✓ SQL 檔案建立成功
-    echo [%TIMESTAMP%] SQL 檔案建立成功 >> %LOG_FILE%
+    echo ✓ SQL file created successfully
+    echo [%TIMESTAMP%] SQL file created successfully >> %LOG_FILE%
     type %SQL_FILE%
 ) else (
     echo.
-    echo ✗ SQL 檔案建立失敗！
-    echo [%TIMESTAMP%] SQL 檔案建立失敗！ >> %LOG_FILE%
-    echo 按任意鍵結束...
+    echo ✗ Failed to create SQL file!
+    echo [%TIMESTAMP%] Failed to create SQL file! >> %LOG_FILE%
+    echo Press any key to exit...
     pause >nul
     exit /b 1
 )
 
-REM ========== 步驟 2：從 PostgreSQL 匯出 CSV ==========
+REM ========== Step 2: Export CSV from PostgreSQL ==========
 echo.
-echo [步驟 2] 從 PostgreSQL 匯出 CSV 檔案...
-echo [%TIMESTAMP%] 從 PostgreSQL 匯出 CSV 檔案... >> %LOG_FILE%
+echo [Step 2] Exporting CSV file from PostgreSQL...
+echo [%TIMESTAMP%] Exporting CSV file from PostgreSQL... >> %LOG_FILE%
 
 set PGPASSWORD=%PGSQL_PASSWORD%
 
-REM 使用 -f 參數執行 SQL 檔案
-echo 正在連接資料庫...
+REM Execute SQL file using -f parameter
+echo Connecting to database...
 psql -h %PGSQL_HOST% -p %PGSQL_PORT% -U %PGSQL_USER% -d %PGSQL_DB% -f %SQL_FILE% > %CSV_FILE% 2>>%LOG_FILE%
 
 if %errorlevel% equ 0 (
     echo.
-    echo ✓ CSV 匯出成功！
-    echo ✓ 檔案位置：%CSV_FILE%
-    echo [%TIMESTAMP%] CSV 匯出成功！ >> %LOG_FILE%
+    echo ✓ CSV export succeeded!
+    echo ✓ File location: %CSV_FILE%
+    echo [%TIMESTAMP%] CSV export succeeded! >> %LOG_FILE%
     
-    REM 顯示匯出的行數
+    REM Display number of exported rows
     for /f %%A in ('find /c /v "" %CSV_FILE%') do (
-        echo ✓ 匯出行數：%%A
-        echo [%TIMESTAMP%] 匯出行數：%%A >> %LOG_FILE%
+        echo ✓ Total rows exported: %%A
+        echo [%TIMESTAMP%] Total rows exported: %%A >> %LOG_FILE%
     )
 ) else (
     echo.
-    echo ✗ CSV 匯出失敗！
-    echo ✗ 錯誤代碼：%errorlevel%
-    echo [%TIMESTAMP%] CSV 匯出失敗！錯誤代碼：%errorlevel% >> %LOG_FILE%
+    echo ✗ CSV export failed!
+    echo ✗ Error code: %errorlevel%
+    echo [%TIMESTAMP%] CSV export failed! Error code: %errorlevel% >> %LOG_FILE%
     echo.
-    echo 請檢查：
-    echo 1. PostgreSQL 伺服器是否正常運行
-    echo 2. 帳號密碼是否正確
-    echo 3. 資料庫連線是否暢通
+    echo Please check the following:
+    echo 1. PostgreSQL server is running
+    echo 2. Username and password are correct
+    echo 3. Database connection is working
     echo.
-    echo 日誌檔案：%LOG_FILE%
-    echo 按任意鍵結束...
+    echo Log file: %LOG_FILE%
+    echo Press any key to exit...
     pause >nul
     exit /b 1
 )
 
-REM ========== 步驟 3：清理臨時檔案 ==========
+REM ========== Step 3: Clean Up Temporary Files ==========
 echo.
-echo [步驟 3] 清理臨時檔案...
+echo [Step 3] Cleaning up temporary files...
 if exist %SQL_FILE% (
     del /f /q %SQL_FILE%
-    echo ✓ 臨時檔案已刪除
+    echo ✓ Temporary files deleted
 )
 
 echo.
 echo ========================================
-echo ✓ CSV 匯出全部完成！
-echo 檔案位置：%CSV_FILE%
-echo 日誌檔案：%LOG_FILE%
+echo ✓ CSV export completed successfully!
+echo File location: %CSV_FILE%
+echo Log file: %LOG_FILE%
 echo ========================================
-echo [%TIMESTAMP%] CSV 匯出全部完成！ >> %LOG_FILE%
+echo [%TIMESTAMP%] CSV export completed successfully! >> %LOG_FILE%
 echo.
-echo 按任意鍵結束...
+echo Press any key to exit...
 pause >nul
