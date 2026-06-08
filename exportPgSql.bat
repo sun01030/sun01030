@@ -1,6 +1,6 @@
 @echo off
 REM ========================================
-REM PostgreSQL SQL 查詢匯出 CSV 檔案
+REM PostgreSQL SQL 查詢匯出 CSV 檔案 (簡化版)
 REM ========================================
 
 setlocal enabledelayedexpansion
@@ -20,6 +20,10 @@ set TIMESTAMP=%date:~10,4%-%date:~4,2%-%date:~7,2%_%time:~0,2%-%time:~3,2%-%time
 REM ========== 建立臨時資料夾 ==========
 if not exist C:\temp mkdir C:\temp
 
+echo.
+echo ========================================
+echo PostgreSQL CSV 匯出工具
+echo ========================================
 echo [%TIMESTAMP%] 開始匯出... >> %LOG_FILE%
 
 REM ========== 步驟 1：建立 SQL 查詢檔案 ==========
@@ -27,7 +31,9 @@ echo.
 echo [步驟 1] 建立 SQL 查詢檔案...
 echo [%TIMESTAMP%] 建立 SQL 查詢檔案... >> %LOG_FILE%
 
+REM 直接建立 SQL 檔案，使用簡單的 SELECT 查詢
 (
+    echo \copy ^(
     echo SELECT edai.* ,
     echo     eda.article_id,
     echo     edt.name as templateName 
@@ -40,31 +46,20 @@ echo [%TIMESTAMP%] 建立 SQL 查詢檔案... >> %LOG_FILE%
     echo     ON edt.label_code = e.label_code
     echo GROUP BY edai.label_code, eda.article_id, edt.name
     echo ORDER BY edai.label_code
-    echo LIMIT 1;
-    echo \copy (^
-    echo SELECT edai.* ,
-    echo     eda.article_id,
-    echo     edt.name as templateName 
-    echo FROM end_device e 
-    echo JOIN end_device_add_info edai 
-    echo     ON edai.label_code = e.label_code
-    echo JOIN end_device_articles eda 
-    echo     ON eda.label_code = e.label_code
-    echo JOIN end_device_templates edt 
-    echo     ON edt.label_code = e.label_code
-    echo GROUP BY edai.label_code, eda.article_id, edt.name
-    echo ORDER BY edai.label_code
-    echo LIMIT 1^
-    echo ) TO STDOUT WITH CSV HEADER DELIMITER ',';
+    echo LIMIT 1
+    echo ^) TO STDOUT WITH CSV HEADER DELIMITER ',';
 ) > %SQL_FILE%
 
 if exist %SQL_FILE% (
-    echo ✓ SQL 檔案建立成功！
-    echo [%TIMESTAMP%] SQL 檔案建立成功！ >> %LOG_FILE%
+    echo ✓ SQL 檔案建立成功
+    echo [%TIMESTAMP%] SQL 檔案建立成功 >> %LOG_FILE%
+    type %SQL_FILE%
 ) else (
+    echo.
     echo ✗ SQL 檔案建立失敗！
     echo [%TIMESTAMP%] SQL 檔案建立失敗！ >> %LOG_FILE%
-    pause
+    echo 按任意鍵結束...
+    pause >nul
     exit /b 1
 )
 
@@ -76,31 +71,52 @@ echo [%TIMESTAMP%] 從 PostgreSQL 匯出 CSV 檔案... >> %LOG_FILE%
 set PGPASSWORD=%PGSQL_PASSWORD%
 
 REM 使用 -f 參數執行 SQL 檔案
-psql -h %PGSQL_HOST% -p %PGSQL_PORT% -U %PGSQL_USER% -d %PGSQL_DB% -f %SQL_FILE% > %CSV_FILE%
+echo 正在連接資料庫...
+psql -h %PGSQL_HOST% -p %PGSQL_PORT% -U %PGSQL_USER% -d %PGSQL_DB% -f %SQL_FILE% > %CSV_FILE% 2>>%LOG_FILE%
 
 if %errorlevel% equ 0 (
     echo.
     echo ✓ CSV 匯出成功！
     echo ✓ 檔案位置：%CSV_FILE%
     echo [%TIMESTAMP%] CSV 匯出成功！ >> %LOG_FILE%
+    
+    REM 顯示匯出的行數
+    for /f %%A in ('find /c /v "" %CSV_FILE%') do (
+        echo ✓ 匯出行數：%%A
+        echo [%TIMESTAMP%] 匯出行數：%%A >> %LOG_FILE%
+    )
 ) else (
     echo.
-    echo ✗ CSV 匯出失敗！錯誤代碼：%errorlevel%
+    echo ✗ CSV 匯出失敗！
+    echo ✗ 錯誤代碼：%errorlevel%
     echo [%TIMESTAMP%] CSV 匯出失敗！錯誤代碼：%errorlevel% >> %LOG_FILE%
-    pause
+    echo.
+    echo 請檢查：
+    echo 1. PostgreSQL 伺服器是否正常運行
+    echo 2. 帳號密碼是否正確
+    echo 3. 資料庫連線是否暢通
+    echo.
+    echo 日誌檔案：%LOG_FILE%
+    echo 按任意鍵結束...
+    pause >nul
     exit /b 1
 )
 
-REM ========== 清理臨時檔案 ==========
+REM ========== 步驟 3：清理臨時檔案 ==========
 echo.
 echo [步驟 3] 清理臨時檔案...
-if exist %SQL_FILE% del /f /q %SQL_FILE%
+if exist %SQL_FILE% (
+    del /f /q %SQL_FILE%
+    echo ✓ 臨時檔案已刪除
+)
 
 echo.
 echo ========================================
-echo CSV 匯出全部完成！
-echo 詳細日誌：%LOG_FILE%
+echo ✓ CSV 匯出全部完成！
+echo 檔案位置：%CSV_FILE%
+echo 日誌檔案：%LOG_FILE%
 echo ========================================
 echo [%TIMESTAMP%] CSV 匯出全部完成！ >> %LOG_FILE%
-
-pause
+echo.
+echo 按任意鍵結束...
+pause >nul
